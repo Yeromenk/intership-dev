@@ -1,5 +1,16 @@
 # Raynet Internship Project
 
+
+```
+uv run manage.py migrate
+uv run manage.py import_data ../data/data.json
+uv run manage.py runserver
+```
+
+
+
+
+
 ## Design inspirace
 
 - https://hoodie-sale-49085175.figma.site/

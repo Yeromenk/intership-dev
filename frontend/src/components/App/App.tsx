@@ -5,7 +5,7 @@ import { Sidebar } from '../Sidebar/Sidebar';
 import './App.css';
 
 function App() {
-    const { data } = useFetchData();
+    const { data, isLoading } = useFetchData();
     const [darkMode, setDarkMode] = useState(false);
 
     useEffect(() => {
@@ -20,7 +20,7 @@ function App() {
         <div className={`app-container ${darkMode ? 'dark-theme-app' : ''}`}>
             <Sidebar darkMode={darkMode} setDarkMode={setDarkMode} />
             <div className="main-container">
-                <DataTable data={data} darkMode={darkMode} />
+                <DataTable data={data} darkMode={darkMode} isLoading={isLoading} />
             </div>
         </div>
     );

@@ -1,22 +1,20 @@
 import React, { useMemo, useState } from 'react';
 import './DataTable.css';
 
-// Dočasná rozhraní pro mockovaná data (později nahradíte reálným API z Pythonu)
 export interface Trader {
     id: number;
     name: string;
     avatar: string;
     deals: number;
-    value: number; // Hodnota v Kč
+    value: number;
     trendPercent: number;
     sharePercent: number;
     region: string;
     team: string;
-    month: string; // Formát musí být YYYY-MM kvůli <input type="month">
+    month: string;
     badge?: string;
 }
 
-// Generování testovacích dat s upraveným formátem měsíce
 const MOCK_DATA: Trader[] = [
     { id: 1, name: 'Petra Nováková', avatar: 'https://i.pravatar.cc/150?u=1', deals: 45, value: 2500000, trendPercent: 12, sharePercent: 45, region: 'Praha', team: 'Alpha', month: '2026-05', badge: 'Top Seller' },
     { id: 2, name: 'Martin Dvořák', avatar: 'https://i.pravatar.cc/150?u=2', deals: 38, value: 2100000, trendPercent: 8, sharePercent: 38, region: 'Brno', team: 'Beta', month: '2026-05' },
@@ -28,11 +26,9 @@ const MOCK_DATA: Trader[] = [
     { id: 8, name: 'Ondřej Blažek', avatar: 'https://i.pravatar.cc/150?u=8', deals: 17, value: 870000, trendPercent: 2, sharePercent: 15, region: 'Praha', team: 'Beta', month: '2026-05' },
     { id: 9, name: 'Markéta Čermáková', avatar: 'https://i.pravatar.cc/150?u=9', deals: 14, value: 720000, trendPercent: -9, sharePercent: 12, region: 'Brno', team: 'Beta', month: '2026-05' },
     { id: 10, name: 'Radek Novotný', avatar: 'https://i.pravatar.cc/150?u=10', deals: 12, value: 580000, trendPercent: 1, sharePercent: 10, region: 'Ostrava', team: 'Gamma', month: '2026-05' },
-    // Přidal jsem jeden záznam z dubna pro ukázku fungování filtru:
     { id: 11, name: 'Ukázka Duben', avatar: 'https://i.pravatar.cc/150?u=11', deals: 5, value: 100000, trendPercent: 5, sharePercent: 2, region: 'Praha', team: 'Alpha', month: '2026-04' },
 ];
 
-// Helper formátovací funkce
 function formatCurrency(value: number) {
     return value.toLocaleString('cs-CZ') + ' Kč';
 }
@@ -41,58 +37,98 @@ function formatPercent(n: number) {
     return (n > 0 ? '+' : '') + n + ' %';
 }
 
-// Funkce pro hezké zobrazení měsíce (převod z 2026-05 na "Květen 2026")
 function formatMonthName(yyyyMM: string) {
     if (!yyyyMM) return '';
     const [year, monthNum] = yyyyMM.split('-');
     const date = new Date(parseInt(year), parseInt(monthNum) - 1);
     const str = date.toLocaleDateString('cs-CZ', { month: 'long', year: 'numeric' });
-    // První písmeno velké (květen -> Květen)
     return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-export function DataTable() {
+// Typ pro řazení
+type SortKey = 'deals' | 'value' | 'trendPercent' | 'sharePercent' | 'name';
+type SortOrder = 'asc' | 'desc';
+
+interface DataTableProps {
+    data?: any; // Přijímané data z externího pole (z useFetchData), pokud zrovna nepoužijete mock
+    darkMode: boolean; // Darkmode nyní řídí rodičovský prvek!
+}
+
+export function DataTable({ darkMode }: DataTableProps) {
     const [data] = useState<Trader[]>(MOCK_DATA);
 
-    // Stavy pro filtry
-    const [month, setMonth] = useState<string>('2026-05'); // Výchozí měsíc v YYYY-MM
+    // Filtry
+    const [month, setMonth] = useState<string>('2026-05');
     const [nameFilter, setNameFilter] = useState<string>('');
     const [regionFilter, setRegionFilter] = useState<string>('Vše');
     const [teamFilter, setTeamFilter] = useState<string>('Vše');
 
-    // Unikátní hodnoty pro select boxy (u regionu a týmu)
+    // Řazení (výchozí podle hodnoty sestupně)
+    const [sortKey, setSortKey] = useState<SortKey>('value');
+    const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+
     const regions = Array.from(new Set(data.map((r) => r.region)));
     const teams = Array.from(new Set(data.map((r) => r.team)));
 
-    // Aplikace filtrů a řazení dle úspěšnosti (hodnoty value)
-    const filtered = useMemo(() => {
-        return data
+    // Aplikace filtrů a následně řazení
+    const filteredAndSorted = useMemo(() => {
+        let result = data
             .filter((r) => (month ? r.month === month : true))
             .filter((r) => (nameFilter ? r.name.toLowerCase().includes(nameFilter.toLowerCase()) : true))
             .filter((r) => (regionFilter === 'Vše' ? true : r.region === regionFilter))
-            .filter((r) => (teamFilter === 'Vše' ? true : r.team === teamFilter))
-            .sort((a, b) => b.value - a.value);
-    }, [data, month, nameFilter, regionFilter, teamFilter]);
+            .filter((r) => (teamFilter === 'Vše' ? true : r.team === teamFilter));
 
-    // Rozdělení dat na pódium a zbytek
-    const top3 = filtered.slice(0, 3);
-    const places4to6 = filtered.slice(3, 6);
-    const rest = filtered.slice(6);
+        result.sort((a, b) => {
+            let valA = a[sortKey];
+            let valB = b[sortKey];
 
-    // Výpočet celkových metrik (KPI nahoře)
-    const totalValue = filtered.reduce((acc, curr) => acc + curr.value, 0);
-    const totalDeals = filtered.reduce((acc, curr) => acc + curr.deals, 0);
+            if (typeof valA === 'string' && typeof valB === 'string') {
+                return sortOrder === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+            if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+            if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+            return 0;
+        });
 
-    // Reset filtrů
+        return result;
+    }, [data, month, nameFilter, regionFilter, teamFilter, sortKey, sortOrder]);
+
+    const top3 = filteredAndSorted.slice(0, 3);
+    const places4to6 = filteredAndSorted.slice(3, 6);
+    const rest = filteredAndSorted.slice(6);
+
+    const totalValue = filteredAndSorted.reduce((acc, curr) => acc + curr.value, 0);
+    const totalDeals = filteredAndSorted.reduce((acc, curr) => acc + curr.deals, 0);
+
     const clearFilters = () => {
         setMonth('2026-05');
         setNameFilter('');
         setRegionFilter('Vše');
         setTeamFilter('Vše');
+        setSortKey('value');
+        setSortOrder('desc');
+    };
+
+    const handleSort = (key: SortKey) => {
+        if (sortKey === key) {
+            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortKey(key);
+            setSortOrder('desc');
+        }
+    };
+
+    // Helper pro renderování šipek řazení ve sloupci (vždy ukazuje aktivní nebo utlumený stav)
+    const getSortIcon = (key: SortKey) => {
+        if (sortKey === key) {
+            return <span className="sort-icon active">{sortOrder === 'asc' ? '↑' : '↓'}</span>;
+        }
+        return <span className="sort-icon inactive">↕</span>;
     };
 
     return (
-        <div className="cr-dashboard fade-in">
+        <div className={`cr-dashboard fade-in ${darkMode ? 'dark-mode' : ''}`}>
+
             {/* Hlavička a globální KPI */}
             <div className="cr-header">
                 <div className="cr-title-area">
@@ -116,21 +152,11 @@ export function DataTable() {
                 <div className="filters-grid">
                     <div className="filter-item">
                         <label>Měsíc (Kalendář)</label>
-                        {/* Použití nativního kalendáře HTML5 pro přesný výběr roku a měsíce */}
-                        <input
-                            type="month"
-                            value={month}
-                            onChange={(e) => setMonth(e.target.value)}
-                        />
+                        <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
                     </div>
                     <div className="filter-item">
                         <label>Obchodník (Hledat)</label>
-                        <input
-                            type="text"
-                            placeholder="Jméno..."
-                            value={nameFilter}
-                            onChange={(e) => setNameFilter(e.target.value)}
-                        />
+                        <input type="text" placeholder="Jméno..." value={nameFilter} onChange={(e) => setNameFilter(e.target.value)} />
                     </div>
                     <div className="filter-item">
                         <label>Region</label>
@@ -164,10 +190,12 @@ export function DataTable() {
                         {/* 2. místo */}
                         {top3[1] && (
                             <div className="podium-card silver-place slide-up" style={{ animationDelay: '0.1s' }}>
-                                <div className="place-badge">🥈 2. MÍSTO</div>
+                                <div className="place-badge">🥈 2. místo</div>
                                 <img src={top3[1].avatar} alt={top3[1].name} className="trader-avatar" />
                                 <h3 className="trader-name">{top3[1].name}</h3>
-                                <div className={`trader-trend ${top3[1].trendPercent > 0 ? 'up' : 'down'}`}>{formatPercent(top3[1].trendPercent)}</div>
+                                <div className={`trader-trend ${top3[1].trendPercent > 0 ? 'up' : 'down'}`}>
+                                    {formatPercent(top3[1].trendPercent)}
+                                </div>
                                 <div className="trader-metrics">
                                     <div className="metric"><span>{top3[1].deals}</span> dealů</div>
                                     <div className="metric highlight">{formatCurrency(top3[1].value)}</div>
@@ -179,10 +207,12 @@ export function DataTable() {
                         {top3[0] && (
                             <div className="podium-card gold-place slide-up">
                                 {top3[0].badge && <span className="vip-badge">{top3[0].badge}</span>}
-                                <div className="place-badge">🏆 1. MÍSTO</div>
+                                <div className="place-badge">🏆 1. místo</div>
                                 <img src={top3[0].avatar} alt={top3[0].name} className="trader-avatar large" />
                                 <h3 className="trader-name">{top3[0].name}</h3>
-                                <div className={`trader-trend ${top3[0].trendPercent > 0 ? 'up' : 'down'}`}>{formatPercent(top3[0].trendPercent)}</div>
+                                <div className={`trader-trend ${top3[0].trendPercent > 0 ? 'up' : 'down'}`}>
+                                    {formatPercent(top3[0].trendPercent)}
+                                </div>
                                 <div className="trader-metrics">
                                     <div className="metric"><span>{top3[0].deals}</span> dealů</div>
                                     <div className="metric highlight">{formatCurrency(top3[0].value)}</div>
@@ -193,10 +223,12 @@ export function DataTable() {
                         {/* 3. místo */}
                         {top3[2] && (
                             <div className="podium-card bronze-place slide-up" style={{ animationDelay: '0.2s' }}>
-                                <div className="place-badge">🥉 3. MÍSTO</div>
+                                <div className="place-badge">🥉 3. místo</div>
                                 <img src={top3[2].avatar} alt={top3[2].name} className="trader-avatar" />
                                 <h3 className="trader-name">{top3[2].name}</h3>
-                                <div className={`trader-trend ${top3[2].trendPercent > 0 ? 'up' : 'down'}`}>{formatPercent(top3[2].trendPercent)}</div>
+                                <div className={`trader-trend ${top3[2].trendPercent > 0 ? 'up' : 'down'}`}>
+                                    {formatPercent(top3[2].trendPercent)}
+                                </div>
                                 <div className="trader-metrics">
                                     <div className="metric"><span>{top3[2].deals}</span> dealů</div>
                                     <div className="metric highlight">{formatCurrency(top3[2].value)}</div>
@@ -226,17 +258,27 @@ export function DataTable() {
                 </div>
             )}
 
-            {/* Tabulka pro zbylé obchodníky (7. a další) */}
+            {/* Tabulka s možností řazení podle sloupců */}
             <div className="cr-table-container glass-panel fade-in" style={{ animationDelay: '0.4s' }}>
                 <table className="cr-table">
                     <thead>
                     <tr>
                         <th>#</th>
-                        <th>Obchodník</th>
-                        <th>Dealy</th>
-                        <th>Hodnota</th>
-                        <th>Trend</th>
-                        <th>Podíl</th>
+                        <th onClick={() => handleSort('name')} className="sortable-th">
+                            <span className="th-content">Obchodník {getSortIcon('name')}</span>
+                        </th>
+                        <th onClick={() => handleSort('deals')} className="sortable-th">
+                            <span className="th-content">Dealy {getSortIcon('deals')}</span>
+                        </th>
+                        <th onClick={() => handleSort('value')} className="sortable-th">
+                            <span className="th-content">Hodnota {getSortIcon('value')}</span>
+                        </th>
+                        <th onClick={() => handleSort('trendPercent')} className="sortable-th">
+                            <span className="th-content">Trend {getSortIcon('trendPercent')}</span>
+                        </th>
+                        <th onClick={() => handleSort('sharePercent')} className="sortable-th">
+                            <span className="th-content">Podíl {getSortIcon('sharePercent')}</span>
+                        </th>
                     </tr>
                     </thead>
                     <tbody>
@@ -252,9 +294,9 @@ export function DataTable() {
                             <td className="deals-cell">{r.deals}</td>
                             <td className="value-cell">{formatCurrency(r.value)}</td>
                             <td>
-                  <span className={`trend-badge ${r.trendPercent > 0 ? 'up' : 'down'}`}>
-                    {r.trendPercent > 0 ? '↑' : '↓'} {Math.abs(r.trendPercent)}%
-                  </span>
+                                <span className={`trend-badge ${r.trendPercent > 0 ? 'up' : 'down'}`}>
+                                    {r.trendPercent > 0 ? '↑' : '↓'} {Math.abs(r.trendPercent)}%
+                                </span>
                             </td>
                             <td>
                                 <div className="share-bar-container">
@@ -266,8 +308,7 @@ export function DataTable() {
                             </td>
                         </tr>
                     ))}
-                    {/* Stav pokud se nic nenajde */}
-                    {filtered.length === 0 && (
+                    {filteredAndSorted.length === 0 && (
                         <tr><td colSpan={6} className="empty-state">Pro vybrané filtry nebyla nalezena žádná data...</td></tr>
                     )}
                     </tbody>

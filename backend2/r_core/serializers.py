@@ -6,8 +6,13 @@ class PersonSerializer(serializers.ModelSerializer):
         model = Person
         fields = "__all__"
 
-class RankingSerializer(serializers.Serializer):
-    person = PersonSerializer(source="*")
+class RankingSerializer(serializers.ModelSerializer):
+    # person = PersonSerializer(source="*")
     number_of_deals = serializers.IntegerField()
     total_amount = serializers.IntegerField()
+
+
+    class Meta:
+        model = Person
+        fields = "__all__"
     

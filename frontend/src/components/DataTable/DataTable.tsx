@@ -3,10 +3,10 @@ import './DataTable.css';
 
 export interface Trader {
     id: number;
-    name: string;
+    fullNameWithoutTitles: string;
     avatar: string;
-    deals: number;
-    value: number;
+    numberOfDeals: number;
+    totalAmount: number;
     trendPercent: number;
     sharePercent: number;
     region: string;
@@ -108,7 +108,7 @@ export function DataTable({ data = [], darkMode, isLoading }: DataTableProps) {
     const filteredAndSorted = useMemo(() => {
         let result = [...data]
             .filter((r) => (month ? r.month === month : true))
-            .filter((r) => (nameFilter ? r.name.toLowerCase().includes(nameFilter.toLowerCase()) : true))
+            .filter((r) => (nameFilter ? r.fullNameWithoutTitles.toLowerCase().includes(nameFilter.toLowerCase()) : true))
             .filter((r) => (regionFilter === 'Vše' ? true : r.region === regionFilter))
             .filter((r) => (teamFilter === 'Vše' ? true : r.team === teamFilter));
 
@@ -131,8 +131,8 @@ export function DataTable({ data = [], darkMode, isLoading }: DataTableProps) {
     const places4to6 = filteredAndSorted.slice(3, 6);
     const rest = filteredAndSorted.slice(6);
 
-    const totalValue = filteredAndSorted.reduce((acc, curr) => acc + curr.value, 0);
-    const totalDeals = filteredAndSorted.reduce((acc, curr) => acc + curr.deals, 0);
+    const totalValue = filteredAndSorted.reduce((acc, curr) => acc + curr.totalAmount, 0);
+    const totalDeals = filteredAndSorted.reduce((acc, curr) => acc + curr.numberOfDeals, 0);
 
     const animatedTotalValue = useCountUp(totalValue);
     const animatedTotalDeals = useCountUp(totalDeals);
@@ -252,14 +252,14 @@ export function DataTable({ data = [], darkMode, isLoading }: DataTableProps) {
                                 {top3[1] && (
                                     <div className="podium-card silver-place slide-up" style={{ animationDelay: '0.1s' }}>
                                         <div className="place-badge">🥈 2. místo</div>
-                                        <img src={top3[1].avatar} alt={top3[1].name} className="trader-avatar" />
-                                        <h3 className="trader-name">{top3[1].name}</h3>
+                                        <img src={top3[1].avatar} alt={top3[1].fullNameWithoutTitles} className="trader-avatar" />
+                                        <h3 className="trader-name">{top3[1].fullNameWithoutTitles}</h3>
                                         <div className={`trader-trend ${top3[1].trendPercent > 0 ? 'up' : 'down'}`}>
                                             {formatPercent(top3[1].trendPercent)}
                                         </div>
                                         <div className="trader-metrics">
-                                            <div className="metric"><span>{top3[1].deals}</span> dealů</div>
-                                            <div className="metric highlight">{formatCurrency(top3[1].value)}</div>
+                                            <div className="metric"><span>{top3[1].numberOfDeals}</span> dealů</div>
+                                            <div className="metric highlight">{formatCurrency(top3[1].totalAmount)}</div>
                                         </div>
                                     </div>
                                 )}
@@ -267,28 +267,28 @@ export function DataTable({ data = [], darkMode, isLoading }: DataTableProps) {
                                     <div className="podium-card gold-place slide-up">
                                         {top3[0].badge && <span className="vip-badge">{top3[0].badge}</span>}
                                         <div className="place-badge">🏆 1. místo</div>
-                                        <img src={top3[0].avatar} alt={top3[0].name} className="trader-avatar large" />
-                                        <h3 className="trader-name">{top3[0].name}</h3>
+                                        <img src={top3[0].avatar} alt={top3[0].fullNameWithoutTitles} className="trader-avatar large" />
+                                        <h3 className="trader-name">{top3[0].fullNameWithoutTitles}</h3>
                                         <div className={`trader-trend ${top3[0].trendPercent > 0 ? 'up' : 'down'}`}>
                                             {formatPercent(top3[0].trendPercent)}
                                         </div>
                                         <div className="trader-metrics">
-                                            <div className="metric"><span>{top3[0].deals}</span> dealů</div>
-                                            <div className="metric highlight">{formatCurrency(top3[0].value)}</div>
+                                            <div className="metric"><span>{top3[0].numberOfDeals}</span> dealů</div>
+                                            <div className="metric highlight">{formatCurrency(top3[0].totalAmount)}</div>
                                         </div>
                                     </div>
                                 )}
                                 {top3[2] && (
                                     <div className="podium-card bronze-place slide-up" style={{ animationDelay: '0.2s' }}>
                                         <div className="place-badge">🥉 3. místo</div>
-                                        <img src={top3[2].avatar} alt={top3[2].name} className="trader-avatar" />
-                                        <h3 className="trader-name">{top3[2].name}</h3>
+                                        <img src={top3[2].avatar} alt={top3[2].fullNameWithoutTitles} className="trader-avatar" />
+                                        <h3 className="trader-name">{top3[2].fullNameWithoutTitles}</h3>
                                         <div className={`trader-trend ${top3[2].trendPercent > 0 ? 'up' : 'down'}`}>
                                             {formatPercent(top3[2].trendPercent)}
                                         </div>
                                         <div className="trader-metrics">
-                                            <div className="metric"><span>{top3[2].deals}</span> dealů</div>
-                                            <div className="metric highlight">{formatCurrency(top3[2].value)}</div>
+                                            <div className="metric"><span>{top3[2].numberOfDeals}</span> dealů</div>
+                                            <div className="metric highlight">{formatCurrency(top3[2].totalAmount)}</div>
                                         </div>
                                     </div>
                                 )}
@@ -302,10 +302,10 @@ export function DataTable({ data = [], darkMode, isLoading }: DataTableProps) {
                             {places4to6.map((r, i) => (
                                 <div key={r.id} className="runner-card glass-panel">
                                     <div className="runner-rank">{i + 4}.</div>
-                                    <img src={r.avatar} alt={r.name} className="runner-avatar" />
+                                    <img src={r.avatar} alt={r.fullNameWithoutTitles} className="runner-avatar" />
                                     <div className="runner-info">
-                                        <h4>{r.name} {r.badge && <span className="mini-badge">{r.badge}</span>}</h4>
-                                        <p>{r.deals} dealů • {formatCurrency(r.value)}</p>
+                                        <h4>{r.fullNameWithoutTitles} {r.badge && <span className="mini-badge">{r.badge}</span>}</h4>
+                                        <p>{r.numberOfDeals} dealů • {formatCurrency(r.totalAmount)}</p>
                                     </div>
                                     <div className={`runner-trend ${r.trendPercent > 0 ? 'up' : 'down'}`}>
                                         {formatPercent(r.trendPercent)}
@@ -345,12 +345,12 @@ export function DataTable({ data = [], darkMode, isLoading }: DataTableProps) {
                                         <td className="rank-cell"><span>{idx + 7}</span></td>
                                         <td>
                                             <div className="td-trader">
-                                                <img src={r.avatar} alt={r.name} className="td-avatar" />
-                                                <span className="td-name">{r.name}</span>
+                                                <img src={r.avatar} alt={r.fullNameWithoutTitles} className="td-avatar" />
+                                                <span className="td-name">{r.fullNameWithoutTitles}</span>
                                             </div>
                                         </td>
-                                        <td className="deals-cell">{r.deals}</td>
-                                        <td className="value-cell">{formatCurrency(r.value)}</td>
+                                        <td className="deals-cell">{r.numberOfDeals}</td>
+                                        <td className="value-cell">{formatCurrency(r.totalAmount)}</td>
                                         <td>
                                             <div className="trend-graphics-mini">
                                                 <span className={`trend-badge ${r.trendPercent > 0 ? 'up' : 'down'}`}>

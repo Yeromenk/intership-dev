@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trader } from '../components/DataTable/DataTable'; // Импортируем интерфейс из таблицы
+import { Trader } from '../components/DataTable/DataTable';
 
 export function useFetchData() {
   const [data, setData] = useState<Trader[]>([]);

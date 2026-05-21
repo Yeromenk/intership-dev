@@ -15,7 +15,7 @@ export interface Trader {
     badge?: string;
 }
 
-// === Утилиты и мини-компоненты (Всё в одном файле) ===
+// === Pomocné formátovací funkce ===
 function formatCurrency(value: number) {
     return value.toLocaleString('cs-CZ') + ' Kč';
 }
@@ -32,6 +32,7 @@ function formatMonthName(yyyyMM: string) {
     return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+// Hook pro animované "natočení" čísel (KPI metrik)
 function useCountUp(endValue: number, durationStr = 1000) {
     const [count, setCount] = useState(0);
 
@@ -55,23 +56,6 @@ function useCountUp(endValue: number, durationStr = 1000) {
     return count;
 }
 
-const Sparkline = ({ trend, strokeColor }: { trend: number, strokeColor: string }) => {
-    const points = useMemo(() => {
-        const p1 = 20 + Math.random() * 10;
-        const p2 = p1 + (Math.random() * 20 - 10);
-        const p3 = p2 + (Math.random() * 20 - 10);
-        const p4 = p3 + (Math.random() * 20 - 10);
-        const p5 = trend >= 0 ? Math.max(10, p4 - 15) : Math.min(30, p4 + 15);
-        return `0,${p1} 15,${p2} 30,${p3} 45,${p4} 60,${p5}`;
-    }, [trend]);
-
-    return (
-        <svg width="60" height="40" viewBox="0 0 60 40" className="sparkline">
-            <polyline fill="none" stroke={strokeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" points={points} />
-        </svg>
-    );
-};
-
 type SortKey = 'deals' | 'value' | 'trendPercent' | 'sharePercent' | 'name';
 type SortOrder = 'asc' | 'desc';
 
@@ -81,10 +65,10 @@ interface DataTableProps {
     isLoading: boolean;
 }
 
-// === Основной Компонент ===
+// === Hlavní komponenta tabulky ===
 export function DataTable({ data = [], darkMode, isLoading }: DataTableProps) {
 
-    // Синхронизация с URL (Query Params)
+    // Načtení parametrů filtru z URL (pro možnost sdílení odkazu)
     const getInitialParam = (key: string, fallback: string) => {
         if (typeof window !== 'undefined') {
             const params = new URLSearchParams(window.location.search);
@@ -101,6 +85,7 @@ export function DataTable({ data = [], darkMode, isLoading }: DataTableProps) {
     const [sortKey, setSortKey] = useState<SortKey>('value');
     const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
+    // Průběžná aktualizace URL parametrů při každé změně filtrů
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const params = new URLSearchParams(window.location.search);
@@ -114,12 +99,12 @@ export function DataTable({ data = [], darkMode, isLoading }: DataTableProps) {
         }
     }, [month, nameFilter, regionFilter, teamFilter]);
 
-    // Генерация уникальных полей на основе реальных данных API
+    // Generování unikátních voleb z dostupných dat (odstranění prázdných hodnot)
     const regions = Array.from(new Set(data.map((r) => r.region))).filter(Boolean);
     const teams = Array.from(new Set(data.map((r) => r.team))).filter(Boolean);
     const uniqueMonths = Array.from(new Set(data.map((r) => r.month))).filter(Boolean).sort().reverse();
 
-    // Фильтрация и Сортировка - ОЧЕНЬ ВАЖНО: [...data] чтобы не мутировать исходный пропс
+    // Filtrace a řazení
     const filteredAndSorted = useMemo(() => {
         let result = [...data]
             .filter((r) => (month ? r.month === month : true))
@@ -141,6 +126,7 @@ export function DataTable({ data = [], darkMode, isLoading }: DataTableProps) {
         return result;
     }, [data, month, nameFilter, regionFilter, teamFilter, sortKey, sortOrder]);
 
+    // Rozdělení uživatelů na zóny (Pódium, těsně pod vrcholem, a zbytek v tabulce)
     const top3 = filteredAndSorted.slice(0, 3);
     const places4to6 = filteredAndSorted.slice(3, 6);
     const rest = filteredAndSorted.slice(6);
@@ -166,25 +152,6 @@ export function DataTable({ data = [], darkMode, isLoading }: DataTableProps) {
         return <span className="sort-icon inactive">↕</span>;
     };
 
-    const exportToCsv = () => {
-        const headers = ['Závodník', 'Dealy', 'Hodnota (Kč)', 'Trend (%)', 'Podíl (%)', 'Region', 'Tým'];
-        const csvRows = [headers.join(',')];
-
-        filteredAndSorted.forEach(r => {
-            const row = [
-                `"${r.name}"`, r.deals, r.value, r.trendPercent, r.sharePercent, `"${r.region}"`, `"${r.team}"`
-            ];
-            csvRows.push(row.join(','));
-        });
-
-        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.setAttribute('href', url);
-        link.setAttribute('download', `traders_export_${new Date().getTime()}.csv`);
-        link.click();
-    };
-
     const renderSkeletons = () => (
         <div className="skeleton-wrapper">
             <div className="skeleton title-skeleton"></div>
@@ -201,18 +168,19 @@ export function DataTable({ data = [], darkMode, isLoading }: DataTableProps) {
         </div>
     );
 
+    // Změna renderu během načítání z API
     if (isLoading) return <div className={`cr-dashboard ${darkMode ? 'dark-mode' : ''}`}>{renderSkeletons()}</div>;
 
     return (
         <div className={`cr-dashboard fade-in ${darkMode ? 'dark-mode' : ''}`}>
 
+            {/* Hlavička a globální KPI */}
             <div className="cr-header">
                 <div className="cr-title-area">
                     <h1 className="cr-title">Žebříček obchodníků</h1>
                     <p className="cr-subtitle">Měsíční přehled a výkonnost týmu</p>
                 </div>
                 <div className="cr-header-actions">
-                    <button onClick={exportToCsv} className="btn-export">⬇️ Uložit do CSV</button>
                     <div className="cr-kpi-cards">
                         <div className="kpi-card">
                             <span className="kpi-label">Celkový obrat</span>
@@ -226,6 +194,7 @@ export function DataTable({ data = [], darkMode, isLoading }: DataTableProps) {
                 </div>
             </div>
 
+            {/* Filtry */}
             <div className="cr-filters-section glass-panel">
                 <div className="filters-grid">
                     <div className="filter-item">
@@ -266,6 +235,7 @@ export function DataTable({ data = [], darkMode, isLoading }: DataTableProps) {
                 </div>
             </div>
 
+            {/* Zobrazení při prázdném výsledku hledání */}
             {filteredAndSorted.length === 0 ? (
                 <div className="beautiful-empty-state glass-panel fade-in">
                     <div className="empty-icon">🔍</div>
@@ -275,7 +245,7 @@ export function DataTable({ data = [], darkMode, isLoading }: DataTableProps) {
                 </div>
             ) : (
                 <>
-                    {/* Top 3 ступени */}
+                    {/* Top 3 stupně vítězů (Pódium) */}
                     {top3.length > 0 && (
                         <div className="cr-podium-section">
                             <div className="podium-container">
@@ -284,11 +254,13 @@ export function DataTable({ data = [], darkMode, isLoading }: DataTableProps) {
                                         <div className="place-badge">🥈 2. místo</div>
                                         <img src={top3[1].avatar} alt={top3[1].name} className="trader-avatar" />
                                         <h3 className="trader-name">{top3[1].name}</h3>
-                                        <div className="trend-graphics">
-                                            <Sparkline trend={top3[1].trendPercent} strokeColor={top3[1].trendPercent > 0 ? '#10b981' : '#ef4444'} />
-                                            <div className={`trader-trend ${top3[1].trendPercent > 0 ? 'up' : 'down'}`}>{formatPercent(top3[1].trendPercent)}</div>
+                                        <div className={`trader-trend ${top3[1].trendPercent > 0 ? 'up' : 'down'}`}>
+                                            {formatPercent(top3[1].trendPercent)}
                                         </div>
-                                        <div className="trader-metrics"><div className="metric"><span>{top3[1].deals}</span> dealů</div><div className="metric highlight">{formatCurrency(top3[1].value)}</div></div>
+                                        <div className="trader-metrics">
+                                            <div className="metric"><span>{top3[1].deals}</span> dealů</div>
+                                            <div className="metric highlight">{formatCurrency(top3[1].value)}</div>
+                                        </div>
                                     </div>
                                 )}
                                 {top3[0] && (
@@ -297,11 +269,13 @@ export function DataTable({ data = [], darkMode, isLoading }: DataTableProps) {
                                         <div className="place-badge">🏆 1. místo</div>
                                         <img src={top3[0].avatar} alt={top3[0].name} className="trader-avatar large" />
                                         <h3 className="trader-name">{top3[0].name}</h3>
-                                        <div className="trend-graphics">
-                                            <Sparkline trend={top3[0].trendPercent} strokeColor={top3[0].trendPercent > 0 ? '#10b981' : '#ef4444'} />
-                                            <div className={`trader-trend ${top3[0].trendPercent > 0 ? 'up' : 'down'}`}>{formatPercent(top3[0].trendPercent)}</div>
+                                        <div className={`trader-trend ${top3[0].trendPercent > 0 ? 'up' : 'down'}`}>
+                                            {formatPercent(top3[0].trendPercent)}
                                         </div>
-                                        <div className="trader-metrics"><div className="metric"><span>{top3[0].deals}</span> dealů</div><div className="metric highlight">{formatCurrency(top3[0].value)}</div></div>
+                                        <div className="trader-metrics">
+                                            <div className="metric"><span>{top3[0].deals}</span> dealů</div>
+                                            <div className="metric highlight">{formatCurrency(top3[0].value)}</div>
+                                        </div>
                                     </div>
                                 )}
                                 {top3[2] && (
@@ -309,18 +283,20 @@ export function DataTable({ data = [], darkMode, isLoading }: DataTableProps) {
                                         <div className="place-badge">🥉 3. místo</div>
                                         <img src={top3[2].avatar} alt={top3[2].name} className="trader-avatar" />
                                         <h3 className="trader-name">{top3[2].name}</h3>
-                                        <div className="trend-graphics">
-                                            <Sparkline trend={top3[2].trendPercent} strokeColor={top3[2].trendPercent > 0 ? '#10b981' : '#ef4444'} />
-                                            <div className={`trader-trend ${top3[2].trendPercent > 0 ? 'up' : 'down'}`}>{formatPercent(top3[2].trendPercent)}</div>
+                                        <div className={`trader-trend ${top3[2].trendPercent > 0 ? 'up' : 'down'}`}>
+                                            {formatPercent(top3[2].trendPercent)}
                                         </div>
-                                        <div className="trader-metrics"><div className="metric"><span>{top3[2].deals}</span> dealů</div><div className="metric highlight">{formatCurrency(top3[2].value)}</div></div>
+                                        <div className="trader-metrics">
+                                            <div className="metric"><span>{top3[2].deals}</span> dealů</div>
+                                            <div className="metric highlight">{formatCurrency(top3[2].value)}</div>
+                                        </div>
                                     </div>
                                 )}
                             </div>
                         </div>
                     )}
 
-                    {/* Карточки 4 - 6 */}
+                    {/* Karty pro 4. - 6. místo */}
                     {places4to6.length > 0 && (
                         <div className="cr-runners-up fade-in" style={{ animationDelay: '0.3s' }}>
                             {places4to6.map((r, i) => (
@@ -339,18 +315,28 @@ export function DataTable({ data = [], darkMode, isLoading }: DataTableProps) {
                         </div>
                     )}
 
-                    {/* Сама таблица */}
+                    {/* Standardní tabulka pro zbývající data */}
                     {rest.length > 0 && (
                         <div className="cr-table-container glass-panel fade-in" style={{ animationDelay: '0.4s' }}>
                             <table className="cr-table">
                                 <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th onClick={() => handleSort('name')} className="sortable-th"><span className="th-content">Obchodník {getSortIcon('name')}</span></th>
-                                    <th onClick={() => handleSort('deals')} className="sortable-th"><span className="th-content">Dealy {getSortIcon('deals')}</span></th>
-                                    <th onClick={() => handleSort('value')} className="sortable-th"><span className="th-content">Hodnota {getSortIcon('value')}</span></th>
-                                    <th onClick={() => handleSort('trendPercent')} className="sortable-th"><span className="th-content">Trend {getSortIcon('trendPercent')}</span></th>
-                                    <th onClick={() => handleSort('sharePercent')} className="sortable-th"><span className="th-content">Podíl {getSortIcon('sharePercent')}</span></th>
+                                    <th onClick={() => handleSort('name')} className="sortable-th">
+                                        <span className="th-content">Obchodník {getSortIcon('name')}</span>
+                                    </th>
+                                    <th onClick={() => handleSort('deals')} className="sortable-th">
+                                        <span className="th-content">Dealy {getSortIcon('deals')}</span>
+                                    </th>
+                                    <th onClick={() => handleSort('value')} className="sortable-th">
+                                        <span className="th-content">Hodnota {getSortIcon('value')}</span>
+                                    </th>
+                                    <th onClick={() => handleSort('trendPercent')} className="sortable-th">
+                                        <span className="th-content">Trend {getSortIcon('trendPercent')}</span>
+                                    </th>
+                                    <th onClick={() => handleSort('sharePercent')} className="sortable-th">
+                                        <span className="th-content">Podíl {getSortIcon('sharePercent')}</span>
+                                    </th>
                                 </tr>
                                 </thead>
                                 <tbody>
